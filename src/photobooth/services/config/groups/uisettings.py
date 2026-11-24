@@ -12,6 +12,16 @@ class GroupUiSettings(BaseModel):
 
     model_config = ConfigDict(title="Personalize the User Interface")
 
+    FRONTPAGE_TITLE: str = Field(
+        default="",
+        description="Event title shown big on the first screen, for example 'MIS XV LUCIA♥' or 'Boda de Ana y Luis'. Leave empty to show the frontpage text (below) instead.",
+    )
+
+    FRONTPAGE_SHOW_DATE: bool = Field(
+        default=True,
+        description="Show today's date (dd/mm/yyyy) below the event title.",
+    )
+
     PRIMARY_COLOR: Color = Field(
         default=Color("#196cb0"),
         description="Primary color (e.g. buttons, title bar).",
