@@ -36,7 +36,7 @@ from photobooth.services.config.groups.cameras import GroupCameras  # noqa: E402
 from photobooth.services.config.groups.common import GroupCommon  # noqa: E402
 from photobooth.services.config.groups.share import GroupShare  # noqa: E402
 from photobooth.services.config.groups.uisettings import GroupUiSettings  # noqa: E402
-from photobooth.utils import stripdesign  # noqa: E402
+from photobooth.utils import framedesign  # noqa: E402
 from photobooth.utils.enumerate import webcameras  # noqa: E402
 
 PORT = 8000
@@ -106,17 +106,32 @@ def guest_buttons(actions: dict) -> None:
                 item.setdefault("jobcontrol", {})["countdown_capture"] = 10.0
 
 
+def photo_frame(actions: dict, frame: str | None) -> None:
+    """The single photo ("Foto") gets the dark frame with the phrase and the date. No background replacement."""
+    processing = actions["image"][0].setdefault("processing", {})
+    processing.update(
+        {
+            "remove_background": False,
+            "img_background_enable": False,
+            "img_background_file": None,
+            "elements_enable": False,
+            "watermark": {"enable": False},
+            "img_frame": {"enable": frame is not None, "image": frame, "mirror_effect": False},
+        }
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--title", help="event title for the first screen, e.g. 'MIS XV LUCIA♥'")
+    parser.add_argument("--title", help="event title for the first screen, e.g. 'MIS XV LUCIA♥'. If omitted the saved one is kept.")
     parser.add_argument("--camera", default="auto", help="exact webcam name (default: first detected)")
     parser.add_argument("--resolution", default="1280x720", help="webcam capture size, default 1280x720")
     parser.add_argument("--framerate", type=int, default=25)
     parser.add_argument("--ip", default="auto", help="LAN IP used in the QR link (default: detected)")
     parser.add_argument("--admin-password", help="admin password (min 4 characters); unchanged if omitted")
     parser.add_argument("--strip-message", help="message under the photo strip (default: the title)")
-    parser.add_argument("--strip-background", default=stripdesign.FALLBACK_BACKGROUND)
-    parser.add_argument("--strip-text-color", default=stripdesign.TEXT_COLOR)
+    parser.add_argument("--strip-background", default=framedesign.FALLBACK_BACKGROUND)
+    parser.add_argument("--strip-text-color", default=framedesign.TEXT_COLOR)
     parser.add_argument("--config-dir", default="config", type=Path)
     parser.add_argument("--update-qr-ip", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -146,15 +161,17 @@ def main() -> int:
         print(f"QR link updated to {ip}")
         return 0
 
-    if not args.title:
-        parser.error("--title is required (or use --update-qr-ip)")
-
     try:
         width, height = (int(x) for x in args.resolution.lower().split("x"))
     except ValueError:
         parser.error("--resolution must look like 1280x720")
 
     config = load_json(config_file)
+
+    # the phrase typed in the app is kept unless a new one is given
+    args.title = args.title or config.get("uisettings", {}).get("FRONTPAGE_TITLE", "")
+    if not args.title:
+        parser.error("--title is required the first time (or use --update-qr-ip)")
 
     # --- common
     if args.admin_password:
@@ -215,11 +232,8 @@ def main() -> int:
     # --- photo strip collage
     if "actions" not in config:
         config["actions"] = GroupActions().model_dump(mode="json")
-    if args.dry_run:
-        background_image, frame_image = None, None
-    else:
-        background_image, frame_image = design_assets(ui.get("STRIP_TEXT") or args.title, args.strip_text_color)
-    strip = build_action(STRIP_NAME, args.strip_background, background_image, frame_image)
+    paths = None if args.dry_run else design_assets(ui.get("STRIP_TEXT") or args.title, args.strip_text_color)
+    strip = build_action(STRIP_NAME, args.strip_background, paths and paths["strip_background"], paths and paths["strip_frame"])
     collages = config["actions"].setdefault("collage", [])
     existing = [i for i, a in enumerate(collages) if a.get("name") == STRIP_NAME]
     if existing:
@@ -227,6 +241,7 @@ def main() -> int:
     else:
         collages.append(strip)
     guest_buttons(config["actions"])
+    photo_frame(config["actions"], paths and paths["photo_frame"])
     GroupActions.model_validate(config["actions"])
 
     # --- QR link (the plugin must be enabled for QR codes to be generated)

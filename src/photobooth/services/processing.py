@@ -12,6 +12,7 @@ from statemachine import Event, State
 from ..appconfig import appconfig
 from ..database.models import Mediaitem
 from ..plugins import pm as pluggy_pm
+from ..utils import framedesign
 from ..utils.exceptions import ProcessMachineOccupiedError
 from .acquisition import AcquisitionService
 from .base import BaseService
@@ -233,6 +234,13 @@ class ProcessingService(BaseService):
     def trigger_action(self, action_type: ActionType, action_index: int = 0, background: str | None = None):
         ## preflight checks
         self._check_occupied()
+
+        # the pictures carry the event phrase and today's date: make sure the frames show the current ones.
+        # never block a capture because of it.
+        try:
+            framedesign.sync_with_config(appconfig, only_if_changed=True)
+        except Exception as exc:
+            logger.warning(f"could not redraw the picture frames: {exc}", exc_info=exc)
 
         configuration_set = getattr(appconfig.actions, action_type)[action_index]
         if background is not None:

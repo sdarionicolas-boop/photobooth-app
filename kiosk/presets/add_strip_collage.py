@@ -17,15 +17,15 @@ from datetime import datetime
 from pathlib import Path
 
 from photobooth.services.config.groups.actions import CollageConfigurationSet  # noqa: E402
-from photobooth.utils import stripdesign  # noqa: E402
+from photobooth.utils import framedesign  # noqa: E402
 
 CONFIG_FILE = Path("config/config.json")
-STRIP_NAME = stripdesign.STRIP_NAME
+STRIP_NAME = framedesign.STRIP_NAME
 
 
-def design_assets(message: str, text_color: str) -> tuple[str, str]:
-    """Generates the dark background and the gold frame with the message, returns their paths (background, frame)."""
-    return stripdesign.render(message, text_color)
+def design_assets(message: str, text_color: str) -> dict[str, str]:
+    """Generates the dark frames with the message and today's date, returns their paths by name."""
+    return framedesign.render(message, text_color)
 
 
 def build_action(name: str, background: str, background_image: str | None = None, frame_image: str | None = None) -> dict:
@@ -38,22 +38,22 @@ def build_action(name: str, background: str, background_image: str | None = None
             "show_individual_captures_in_gallery": False,
         },
         "processing": {
-            "canvas_width": stripdesign.CANVAS_WIDTH,
-            "canvas_height": stripdesign.CANVAS_HEIGHT,
+            "canvas_width": framedesign.STRIP_SIZE[0],
+            "canvas_height": framedesign.STRIP_SIZE[1],
             "merge_definition": [
                 {
                     "description": "photo 1",
-                    "pos_x": stripdesign.PHOTO_X,
-                    "pos_y": stripdesign.PHOTO_1_Y,
-                    "width": stripdesign.PHOTO_WIDTH,
-                    "height": stripdesign.PHOTO_HEIGHT,
+                    "pos_x": framedesign.STRIP_PHOTO_X,
+                    "pos_y": framedesign.STRIP_PHOTO_1_Y,
+                    "width": framedesign.STRIP_PHOTO_W,
+                    "height": framedesign.STRIP_PHOTO_H,
                 },
                 {
                     "description": "photo 2",
-                    "pos_x": stripdesign.PHOTO_X,
-                    "pos_y": stripdesign.PHOTO_2_Y,
-                    "width": stripdesign.PHOTO_WIDTH,
-                    "height": stripdesign.PHOTO_HEIGHT,
+                    "pos_x": framedesign.STRIP_PHOTO_X,
+                    "pos_y": framedesign.STRIP_PHOTO_2_Y,
+                    "width": framedesign.STRIP_PHOTO_W,
+                    "height": framedesign.STRIP_PHOTO_H,
                 },
             ],
             "canvas_fill_background_enable": True,
@@ -76,16 +76,16 @@ def build_action(name: str, background: str, background_image: str | None = None
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--message", default="¡Nuestra Gran Fiesta!", help="text printed under the photos")
-    parser.add_argument("--background", default=stripdesign.FALLBACK_BACKGROUND, help="strip background color (under the night image)")
-    parser.add_argument("--text-color", default=stripdesign.TEXT_COLOR, help="message color")
+    parser.add_argument("--background", default=framedesign.FALLBACK_BACKGROUND, help="strip background color (under the night image)")
+    parser.add_argument("--text-color", default=framedesign.TEXT_COLOR, help="message color")
     parser.add_argument("--name", default="Tira 2 fotos", help="name of the action")
     args = parser.parse_args()
 
     if not CONFIG_FILE.is_file():
         print(f"{CONFIG_FILE} not found. Run this from the repository root, after the app ran once.", file=sys.stderr)
         return 1
-    background_image, frame_image = design_assets(args.message, args.text_color)
-    action = build_action(args.name, args.background, background_image, frame_image)
+    paths = design_assets(args.message, args.text_color)
+    action = build_action(args.name, args.background, paths["strip_background"], paths["strip_frame"])
     CollageConfigurationSet.model_validate(action)  # fail here, not when the app loads the config
 
     config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))

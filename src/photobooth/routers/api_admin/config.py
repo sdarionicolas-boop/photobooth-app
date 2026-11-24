@@ -7,7 +7,7 @@ from pydantic_core import ValidationError
 
 from ...appconfig import appconfig
 from ...container import container
-from ...utils import stripdesign
+from ...utils import framedesign
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/config", tags=["admin", "config"])
@@ -57,11 +57,11 @@ def api_post_config_current(configurable: str, updated_config: dict[AnyStr, Any]
         raise RequestValidationError(exc.errors()) from exc
 
     if configurable == "app":
-        # the photo strip shows the event phrase: redraw it for the saved text. never fail the save because of it.
+        # the pictures show the event phrase: redraw the frames for the saved text. never fail the save because of it.
         try:
-            stripdesign.sync_with_config(appconfig)
+            framedesign.sync_with_config(appconfig)
         except Exception as exc:
-            logger.warning(f"could not update the photo strip design: {exc}", exc_info=exc)
+            logger.warning(f"could not redraw the picture frames: {exc}", exc_info=exc)
 
     if reload:
         logger.info("reload parameter is set, so all registered services are reloaded now. This may take some time...")
