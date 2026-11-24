@@ -28,13 +28,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from add_strip_collage import build_action  # noqa: E402 (needs the path above)
+from add_strip_collage import build_action, design_assets  # noqa: E402
+
 from photobooth.plugins.synchronizer.config import Common as SynchronizerCommon  # noqa: E402
 from photobooth.services.config.groups.actions import GroupActions  # noqa: E402
 from photobooth.services.config.groups.cameras import GroupCameras  # noqa: E402
 from photobooth.services.config.groups.common import GroupCommon  # noqa: E402
 from photobooth.services.config.groups.share import GroupShare  # noqa: E402
 from photobooth.services.config.groups.uisettings import GroupUiSettings  # noqa: E402
+from photobooth.utils import stripdesign  # noqa: E402
 from photobooth.utils.enumerate import webcameras  # noqa: E402
 
 PORT = 8000
@@ -87,6 +89,23 @@ def choose_camera(requested: str) -> str:
     return found[0]
 
 
+def guest_buttons(actions: dict) -> None:
+    """Only two buttons for the guest: "Foto" (first single image action) and "Tira" (the strip)."""
+    for action_type, items in actions.items():
+        if not isinstance(items, list):
+            continue
+        for index, item in enumerate(items):
+            ui = item.get("trigger", {}).get("ui_trigger")
+            if ui is None:
+                continue
+            is_photo = action_type == "image" and index == 0
+            is_strip = action_type == "collage" and item.get("name") == STRIP_NAME
+            ui["show_button"] = is_photo or is_strip
+            if is_photo:
+                ui["title"], ui["icon"] = "Foto", "photo_camera"
+                item.setdefault("jobcontrol", {})["countdown_capture"] = 10.0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--title", help="event title for the first screen, e.g. 'MIS XV LUCIA♥'")
@@ -96,8 +115,8 @@ def main() -> int:
     parser.add_argument("--ip", default="auto", help="LAN IP used in the QR link (default: detected)")
     parser.add_argument("--admin-password", help="admin password (min 4 characters); unchanged if omitted")
     parser.add_argument("--strip-message", help="message under the photo strip (default: the title)")
-    parser.add_argument("--strip-background", default="#FFFFFF")
-    parser.add_argument("--strip-text-color", default="#0f172a")
+    parser.add_argument("--strip-background", default=stripdesign.FALLBACK_BACKGROUND)
+    parser.add_argument("--strip-text-color", default=stripdesign.TEXT_COLOR)
     parser.add_argument("--config-dir", default="config", type=Path)
     parser.add_argument("--update-qr-ip", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -177,20 +196,37 @@ def main() -> int:
             "enable_livestream_when_idle": False,
             "enable_automatic_slideshow": False,
             "livestream_blurredbackground": False,
+            # simple for the guests: no gallery button (the admin button stays visible, it asks for the password),
+            # and the result screen offers only what is useful (sign, background, another one)
+            "show_gallery_on_frontpage": False,
+            "show_admin_on_frontpage": True,
+            "admin_button_invisible": False,
+            "gallery_show_download": False,
+            "gallery_show_delete": False,
+            "gallery_show_filter": False,
+            "gallery_show_shareprint": False,
+            "show_frontpage_timeout": 2,
         }
     )
+    if args.strip_message:
+        ui["STRIP_TEXT"] = args.strip_message
     GroupUiSettings.model_validate(ui)
 
     # --- photo strip collage
     if "actions" not in config:
         config["actions"] = GroupActions().model_dump(mode="json")
-    strip = build_action(STRIP_NAME, args.strip_message or args.title, args.strip_background, args.strip_text_color, 56)
+    if args.dry_run:
+        background_image, frame_image = None, None
+    else:
+        background_image, frame_image = design_assets(ui.get("STRIP_TEXT") or args.title, args.strip_text_color)
+    strip = build_action(STRIP_NAME, args.strip_background, background_image, frame_image)
     collages = config["actions"].setdefault("collage", [])
     existing = [i for i, a in enumerate(collages) if a.get("name") == STRIP_NAME]
     if existing:
         collages[existing[0]] = strip
     else:
         collages.append(strip)
+    guest_buttons(config["actions"])
     GroupActions.model_validate(config["actions"])
 
     # --- QR link (the plugin must be enabled for QR codes to be generated)
@@ -211,7 +247,7 @@ def main() -> int:
     print(f"  title        : {args.title}")
     print(f"  webcam       : {camera} ({width}x{height} @ {args.framerate} fps)")
     print(f"  QR link      : {qr_url(ip)}")
-    print(f"  strip message: {args.strip_message or args.title}")
+    print(f"  strip message: {ui.get('STRIP_TEXT') or args.title}")
     print(f"  admin password {'set' if args.admin_password else 'unchanged'}")
     return 0
 

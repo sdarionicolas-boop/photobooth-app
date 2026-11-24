@@ -4,6 +4,7 @@ Run from the repository root while the app is NOT running (the app rewrites the 
 
     uv run python kiosk/presets/add_strip_collage.py --message "¡Nuestra Gran Fiesta!"
 
+The strip is dark (night background with a thin gold frame and the message, generated into userdata/strip/).
 Every run replaces the action with the same name, so it can be repeated to change the message or colors.
 A backup of config/config.json is written next to it first.
 """
@@ -15,68 +16,54 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from PIL import ImageFont
-
-from photobooth.services.config.groups.actions import CollageConfigurationSet
+from photobooth.services.config.groups.actions import CollageConfigurationSet  # noqa: E402
+from photobooth.utils import stripdesign  # noqa: E402
 
 CONFIG_FILE = Path("config/config.json")
-FONT_FILE = Path("userdata/demoassets/fonts/Roboto-Bold.ttf")
-
-CANVAS_WIDTH = 600
-CANVAS_HEIGHT = 1800
-PHOTO_WIDTH = 520
-PHOTO_HEIGHT = 600
-PHOTO_X = (CANVAS_WIDTH - PHOTO_WIDTH) // 2
-PHOTO_1_Y = 70
-PHOTO_2_Y = PHOTO_1_Y + PHOTO_HEIGHT + 40
-MESSAGE_Y = PHOTO_2_Y + PHOTO_HEIGHT + 120
-MARGIN = 40
+STRIP_NAME = stripdesign.STRIP_NAME
 
 
-def fit_message(message: str, max_font_size: int) -> tuple[int, int]:
-    """Largest font size (<= max) at which the message fits the strip, and the x position that centers it."""
-    size = max_font_size
-    while size > 14:
-        width = ImageFont.truetype(str(FONT_FILE), size).getlength(message)
-        if width <= CANVAS_WIDTH - 2 * MARGIN:
-            return size, round((CANVAS_WIDTH - width) / 2)
-        size -= 2
-    width = ImageFont.truetype(str(FONT_FILE), size).getlength(message)
-    return size, max(0, round((CANVAS_WIDTH - width) / 2))
+def design_assets(message: str, text_color: str) -> tuple[str, str]:
+    """Generates the dark background and the gold frame with the message, returns their paths (background, frame)."""
+    return stripdesign.render(message, text_color)
 
 
-def build_action(name: str, message: str, background: str, text_color: str, font_size: int) -> dict:
-    size, pos_x = fit_message(message, font_size)
-
+def build_action(name: str, background: str, background_image: str | None = None, frame_image: str | None = None) -> dict:
     return {
         "name": name,
         "jobcontrol": {
-            "countdown_capture": 3.0,
-            "countdown_capture_second_following": 3.0,
+            "countdown_capture": 10.0,
+            "countdown_capture_second_following": 10.0,
             "ask_approval_each_capture": False,
             "show_individual_captures_in_gallery": False,
         },
         "processing": {
-            "canvas_width": CANVAS_WIDTH,
-            "canvas_height": CANVAS_HEIGHT,
+            "canvas_width": stripdesign.CANVAS_WIDTH,
+            "canvas_height": stripdesign.CANVAS_HEIGHT,
             "merge_definition": [
-                {"description": "photo 1", "pos_x": PHOTO_X, "pos_y": PHOTO_1_Y, "width": PHOTO_WIDTH, "height": PHOTO_HEIGHT},
-                {"description": "photo 2", "pos_x": PHOTO_X, "pos_y": PHOTO_2_Y, "width": PHOTO_WIDTH, "height": PHOTO_HEIGHT},
+                {
+                    "description": "photo 1",
+                    "pos_x": stripdesign.PHOTO_X,
+                    "pos_y": stripdesign.PHOTO_1_Y,
+                    "width": stripdesign.PHOTO_WIDTH,
+                    "height": stripdesign.PHOTO_HEIGHT,
+                },
+                {
+                    "description": "photo 2",
+                    "pos_x": stripdesign.PHOTO_X,
+                    "pos_y": stripdesign.PHOTO_2_Y,
+                    "width": stripdesign.PHOTO_WIDTH,
+                    "height": stripdesign.PHOTO_HEIGHT,
+                },
             ],
             "canvas_fill_background_enable": True,
             "canvas_fill_background_color": background,
-            "canvas_elements_enable": True,
-            "canvas_elements": [
-                {
-                    "type": "text",
-                    "text": message,
-                    "pos_x": pos_x,
-                    "pos_y": MESSAGE_Y,
-                    "font_size": size,
-                    "font": FONT_FILE.as_posix(),
-                    "color": text_color,
-                }
-            ],
+            "canvas_img_background_enable": bool(background_image),
+            "canvas_img_background_file": background_image,
+            "canvas_img_front_enable": bool(frame_image),
+            "canvas_img_front_file": frame_image,
+            "canvas_elements_enable": False,  # the message is part of the frame image
+            "canvas_elements": [],
         },
         "trigger": {
             "ui_trigger": {"show_button": True, "title": "Tira", "icon": "view_agenda"},
@@ -89,20 +76,16 @@ def build_action(name: str, message: str, background: str, text_color: str, font
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--message", default="¡Nuestra Gran Fiesta!", help="text printed under the photos")
-    parser.add_argument("--background", default="#FFFFFF", help="strip background color")
-    parser.add_argument("--text-color", default="#0f172a", help="message color")
-    parser.add_argument("--font-size", type=int, default=56, help="largest font size, shrinks for long messages")
+    parser.add_argument("--background", default=stripdesign.FALLBACK_BACKGROUND, help="strip background color (under the night image)")
+    parser.add_argument("--text-color", default=stripdesign.TEXT_COLOR, help="message color")
     parser.add_argument("--name", default="Tira 2 fotos", help="name of the action")
     args = parser.parse_args()
 
     if not CONFIG_FILE.is_file():
         print(f"{CONFIG_FILE} not found. Run this from the repository root, after the app ran once.", file=sys.stderr)
         return 1
-    if not FONT_FILE.is_file():
-        print(f"{FONT_FILE} not found. Start the app once so the demo assets are linked.", file=sys.stderr)
-        return 1
-
-    action = build_action(args.name, args.message, args.background, args.text_color, args.font_size)
+    background_image, frame_image = design_assets(args.message, args.text_color)
+    action = build_action(args.name, args.background, background_image, frame_image)
     CollageConfigurationSet.model_validate(action)  # fail here, not when the app loads the config
 
     config = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
