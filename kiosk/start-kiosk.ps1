@@ -65,6 +65,19 @@ function Find-Browser {
 if (Test-Backend) {
     Write-Step "backend already answering on $Url, not starting another one"
 } else {
+    # the router at the venue may hand out another IP than last time: point the QR link at the current one
+    # before the app reads its config.
+    if (-not $DryRun) {
+        Push-Location $RepoRoot
+        try {
+            $qr = & uv run python kiosk/presets/apply_mirror_config.py --update-qr-ip 2>&1 | Select-Object -Last 1
+            Write-Step "QR link: $qr"
+        } catch {
+            Write-Step "could not refresh the QR link: $_"
+        } finally {
+            Pop-Location
+        }
+    }
     Write-Step "starting backend (uv run photobooth) in $RepoRoot"
     if (-not $DryRun) {
         Start-Process -FilePath 'uv' -ArgumentList @('run', 'photobooth') -WorkingDirectory $RepoRoot -WindowStyle Hidden
