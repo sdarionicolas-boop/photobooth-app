@@ -22,6 +22,28 @@ class GroupUiSettings(BaseModel):
         description="Show today's date (dd/mm/yyyy) below the event title.",
     )
 
+    STRIP_TEXT: str = Field(
+        default="",
+        description="Text printed on the photo strip ('Tira 2 fotos'). Leave empty to use the event title. The strip follows the text automatically when the configuration is saved.",
+    )
+
+    COUNTDOWN_NUMBERS_SECONDS: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Numbers are shown only for the last seconds of the countdown. Before that the phrases below are displayed.",
+    )
+
+    COUNTDOWN_PHRASES_FIRST: list[str] = Field(
+        default=["¡Preparate!", "¡Mirá a la cámara!", "¡Sonreí!", "¡Mostrá tu mejor pose!"],
+        description="Phrases shown (one after the other) during the countdown before the first photo, until the numbers start.",
+    )
+
+    COUNTDOWN_PHRASES_NEXT: list[str] = Field(
+        default=["¡Posá para la siguiente fotografía!", "¡Cambiá de pose!", "¡Otra más, con tu mejor sonrisa!", "¡Ya casi!"],
+        description="Phrases shown during the countdown before the second and following photos (strips and collages).",
+    )
+
     PRIMARY_COLOR: Color = Field(
         default=Color("#196cb0"),
         description="Primary color (e.g. buttons, title bar).",
