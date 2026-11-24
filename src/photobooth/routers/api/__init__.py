@@ -2,10 +2,11 @@
 
 from fastapi import APIRouter
 
-from . import acquisition, actions, config, debug, filter, mediacollection, processing, share, signature, sse, system
+from . import acquisition, actions, background, config, debug, filter, mediacollection, processing, share, signature, sse, system
 
 __all__ = [
     "actions",
+    "background",
     "acquisition",  # refers to the 'acquisition.py' file
     "config",  # refers to the 'config.py' file
     "debug",
@@ -20,6 +21,7 @@ __all__ = [
 
 router = APIRouter(prefix="/api")
 router.include_router(actions.router)
+router.include_router(background.router)
 router.include_router(acquisition.router)
 router.include_router(config.router)
 router.include_router(debug.router)
