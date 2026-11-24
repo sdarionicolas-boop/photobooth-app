@@ -300,12 +300,14 @@ class WatermarkStep(PipelineStep):
 
 
 class RemovebgStep(PipelineStep):
-    def __init__(self, model_name: RembgModelType) -> None:
+    def __init__(self, model_name: RembgModelType, cleanup: bool = True) -> None:
         self.model_name = model_name
+        self.cleanup = cleanup
 
-    @staticmethod
-    def hash_image_fast(img: Image.Image):
+    def hash_image_fast(self, img: Image.Image):
         h = hashlib.sha256()
+        # same picture needs a new result if the model or the cleanup changed
+        h.update(f"{self.model_name}|{self.cleanup}".encode())
         h.update(img.mode.encode())
         h.update(str(img.size).encode())
         h.update(img.tobytes())
@@ -320,7 +322,7 @@ class RemovebgStep(PipelineStep):
                 return REMOVE_CACHE[key]
 
             with MetricsTimer(f"background removal using AI model '{self.model_name}'"):
-                result = remove(img=img, session=session)
+                result = remove(img=img, session=session, cleanup=self.cleanup)
 
             REMOVE_CACHE[key] = result
             REMOVE_CACHE.move_to_end(key)

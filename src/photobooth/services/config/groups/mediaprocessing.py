@@ -54,6 +54,11 @@ class GroupMediaprocessing(BaseModel):
         description="Select from predefined models. Modnet and u2netp are packaged with the app, other models will be downloaded on demand and cached, so on first use of other models, the app needs internet access. u2netp is a reduced model that is fastest, modnet usually only slightly slower but provides good results.",
     )
 
+    remove_background_cleanup: bool = Field(
+        default=True,
+        description="Tidy up the cutout after the AI removed the background: drops small floating specks, fills small holes (for example in the hair) and softens the edge. Costs a few milliseconds per picture.",
+    )
+
     fileformat_animations: Literal["mp4", "webp", "avif", "gif"] = Field(
         default="webp",
         description="Format in which animations are stored. WebP is recommended nowadays. AVIF is a newer format, encodes fast, produces smallest files but is not yet broadly compatible. GIF is lower quality (max 256 colors), more compute intensive to encode but offers best compatibility. GIF is deprecated here.",
