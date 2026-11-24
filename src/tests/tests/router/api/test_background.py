@@ -1,6 +1,7 @@
 import logging
 from collections.abc import Generator
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -8,7 +9,9 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from photobooth import USERDATA_PATH
+from photobooth.appconfig import appconfig
 from photobooth.container import container
+from photobooth.services.processing import ProcessingService
 
 logger = logging.getLogger(name=None)
 
@@ -73,3 +76,84 @@ def test_apply_background_unknown_item(client: TestClient):
     response = client.patch(f"/background/{uuid4()}")
 
     assert response.status_code == 404
+
+
+def test_trigger_image_with_background(client: TestClient, background_file: str):
+    with patch.object(container.processing_service, "trigger_action") as trigger:
+        response = client.get("/actions/image/0", params={"background": background_file})
+
+        assert response.status_code == 200
+        trigger.assert_called_once_with("image", 0, background=background_file)
+
+
+def test_trigger_image_without_background_unchanged(client: TestClient):
+    with patch.object(container.processing_service, "trigger_action") as trigger:
+        response = client.get("/actions/image/0")
+
+        assert response.status_code == 200
+        trigger.assert_called_once_with("image", 0)
+
+
+def test_trigger_image_with_empty_background_means_none(client: TestClient):
+    with patch.object(container.processing_service, "trigger_action") as trigger:
+        response = client.get("/actions/image/0", params={"background": ""})
+
+        assert response.status_code == 200
+        trigger.assert_called_once_with("image", 0, background="")
+
+
+def test_trigger_image_with_unlisted_background(client: TestClient):
+    with patch.object(container.processing_service, "trigger_action") as trigger:
+        response = client.get("/actions/image/0", params={"background": "pyproject.toml"})
+
+        assert response.status_code == 406
+        trigger.assert_not_called()
+
+
+def test_trigger_collage_with_background(client: TestClient, background_file: str):
+    with patch.object(container.processing_service, "trigger_action") as trigger:
+        response = client.get("/actions/collage/0", params={"background": background_file})
+
+        assert response.status_code == 200
+        trigger.assert_called_once_with("collage", 0, background=background_file)
+
+
+def test_trigger_video_with_background_rejected(client: TestClient, background_file: str):
+    with patch.object(container.processing_service, "trigger_action") as trigger:
+        response = client.get("/actions/video/0", params={"background": background_file})
+
+        assert response.status_code == 406
+        trigger.assert_not_called()
+
+
+def test_with_background_does_not_change_stored_config(background_file: str):
+    stored = appconfig.actions.image[0]
+    before = stored.processing.model_dump(mode="json")
+
+    chosen = ProcessingService._with_background(stored, background_file)
+    assert chosen.processing.img_background_enable is True
+    assert chosen.processing.remove_background is True
+    assert chosen.processing.img_background_file == Path(background_file)
+
+    none = ProcessingService._with_background(stored, "")
+    assert none.processing.img_background_enable is False
+    assert none.processing.remove_background is False
+    assert none.processing.img_background_file is None
+
+    assert stored.processing.model_dump(mode="json") == before
+
+
+def test_with_background_collage_uses_capture_fields(background_file: str):
+    stored = appconfig.actions.collage[0]
+    before = stored.processing.model_dump(mode="json")
+
+    chosen = ProcessingService._with_background(stored, background_file)
+    assert chosen.processing.capture_img_background_enable is True
+    assert chosen.processing.capture_remove_background is True
+    assert chosen.processing.capture_img_background_file == Path(background_file)
+
+    none = ProcessingService._with_background(stored, "")
+    assert none.processing.capture_img_background_enable is False
+    assert none.processing.capture_remove_background is False
+
+    assert stored.processing.model_dump(mode="json") == before

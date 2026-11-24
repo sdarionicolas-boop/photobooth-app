@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Mapping
+from pathlib import Path
 from queue import Empty, Full, Queue
 from threading import Event as threadingEvent
 from threading import Thread
@@ -212,12 +213,35 @@ class ProcessingService(BaseService):
             target = next(iter(self._workflow_jobmodel._status_sm.configuration))
             sse_service.dispatch_event(SseEventProcessStateinfo(source=source.id, target=target.id, jobmodel=self._workflow_jobmodel.export()))
 
-    def trigger_action(self, action_type: ActionType, action_index: int = 0):
+    @staticmethod
+    def _with_background(configuration_set, background: str):
+        """Copy of an image or collage action's configuration with the background chosen by the guest.
+        The stored configuration is untouched. Empty string means no background replacement (picture as captured).
+        For collages the background is applied to every single capture (not to the canvas)."""
+        is_collage = hasattr(configuration_set.processing, "capture_remove_background")
+        prefix = "capture_" if is_collage else ""
+
+        changes = (
+            {f"{prefix}remove_background": True, f"{prefix}img_background_enable": True, f"{prefix}img_background_file": Path(background)}
+            if background
+            else {f"{prefix}remove_background": False, f"{prefix}img_background_enable": False, f"{prefix}img_background_file": None}
+        )
+        processing = configuration_set.processing.model_copy(update=changes)
+
+        return configuration_set.model_copy(update={"processing": processing})
+
+    def trigger_action(self, action_type: ActionType, action_index: int = 0, background: str | None = None):
         ## preflight checks
         self._check_occupied()
 
+        configuration_set = getattr(appconfig.actions, action_type)[action_index]
+        if background is not None:
+            if action_type not in ("image", "collage"):
+                raise ValueError("choosing a background is supported for single images and collages only")
+            configuration_set = self._with_background(configuration_set, background)
+
         jobmodel = ACTION_TO_MODEL[action_type](
-            configuration_set=getattr(appconfig.actions, action_type)[action_index],
+            configuration_set=configuration_set,
             acquisition_service=self._acquisition_service,
         )
 

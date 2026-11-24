@@ -89,3 +89,27 @@ def test_apply_signature_unknown_item(client: TestClient):
     response = client.post(f"/signature/{uuid4()}", content=_signature_png((20, 20)), headers={"Content-Type": "image/png"})
 
     assert response.status_code == 404
+
+
+def test_apply_signature_on_item_without_original(client: TestClient):
+    """collages have no captured original: they are signed as they are"""
+    mediaitem = container.mediacollection_service.get_item_latest()
+    original = mediaitem.captured_original
+    mediaitem.captured_original = None
+    container.mediacollection_service.update_item(mediaitem)
+
+    try:
+        with Image.open(mediaitem.processed) as before:
+            before.load()
+            size = before.size
+
+        response = client.post(f"/signature/{mediaitem.id}", content=_signature_png(size), headers={"Content-Type": "image/png"})
+
+        assert response.status_code == 200
+        with Image.open(mediaitem.processed) as after:
+            after.load()
+            r, g, b = after.convert("RGB").getpixel((size[0] * 3 // 8, size[1] * 3 // 8))
+            assert r > 200 and g < 60 and b < 60
+    finally:
+        mediaitem.captured_original = original
+        container.mediacollection_service.update_item(mediaitem)

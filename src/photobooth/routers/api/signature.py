@@ -22,9 +22,10 @@ def api_apply_signature(
     mediaitem_id: UUID,
     signature_png: Annotated[bytes, Body(media_type="image/png")],
 ):
-    """Overlay a hand-drawn signature (transparent PNG covering the whole picture) on a single image mediaitem.
+    """Overlay a hand-drawn signature (transparent PNG covering the whole picture) on an image or collage mediaitem.
 
-    The picture is always rebuilt from the captured original, so signing again replaces the previous signature.
+    Single images are rebuilt from the captured original, so signing again replaces the previous signature.
+    Collages (and other items without captured original) are signed as they are, so strokes add up.
     """
 
     if len(signature_png) > MAX_SIGNATURE_BYTES:
@@ -40,12 +41,13 @@ def api_apply_signature(
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{mediaitem_id=} cannot be found. {exc}") from exc
 
-    if mediaitem.captured_original is None:
-        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="only single images can be signed")
+    if mediaitem.media_type not in ("image", "collage"):
+        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="only images and collages can be signed")
 
     try:
-        # rebuild the processed picture from the original (applies the stored filter again) ...
-        process_phase1images(mediaitem.captured_original, mediaitem)
+        if mediaitem.captured_original is not None:
+            # rebuild the processed picture from the original (applies the stored filter again) ...
+            process_phase1images(mediaitem.captured_original, mediaitem)
 
         # ... and put the signature on top.
         with Image.open(mediaitem.processed) as processed:
