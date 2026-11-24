@@ -1,0 +1,1 @@
+import{M as e,k as t,ot as n}from"./runtime-core.esm-bundler-DL3no2RS.js";var r=()=>new Date().toLocaleDateString(`es-AR`,{day:`2-digit`,month:`2-digit`,year:`numeric`});function i(){let i=n(r()),a;return e(()=>{a=window.setInterval(()=>i.value=r(),6e4)}),t(()=>window.clearInterval(a)),i}export{i as t};
