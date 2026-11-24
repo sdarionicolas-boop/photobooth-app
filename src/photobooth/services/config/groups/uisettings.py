@@ -89,7 +89,7 @@ class GroupUiSettings(BaseModel):
 
     FRONTPAGE_TEXT: str = Field(
         default='<div class="fixed-center text-h2 text-weight-bold text-center text-white" style="text-shadow: 4px 4px 4px #666;">Hey!<br>Let\'s take some pictures! <br>📷</div>',
-        description="Text/HTML displayed on frontpage.",
+        description="Text/HTML displayed on frontpage. Use {date} for today's date (dd/mm/yyyy).",
     )
 
     TAKEPIC_MSG_TIME: float = Field(
