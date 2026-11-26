@@ -33,6 +33,15 @@ uv run python kiosk/presets/apply_mirror_config.py --title "MIS XV LUCIA♥" --s
 
 (apagá el programa antes: `Alt+F4` y cerrá la ventana de `uv`/Python desde el Administrador de tareas).
 
+## Panel del evento (Espejo.exe) y dónde quedan las fotos
+
+El instalador crea el acceso directo **Espejo** en el escritorio (o `.\kioskuild-launcher.ps1 -DesktopShortcut`). Botones: iniciar/cerrar el espejo, abrir la carpeta de fotos, imprimir fotos otra vez, copia de seguridad y administración.
+
+- **Fotos terminadas** (con marco, frase y fecha): `media\processed_full\` dentro de la carpeta de la app (p. ej. `C:\photobooth\media\processed_full`).
+- **Originales de la cámara**: `media\camera_original\`.
+- **Copia automática** (cada ~1 minuto mientras el panel está abierto, nunca borra nada): `Documentos\Fotos Espejo\Fotos` y `\Originales`.
+- Si la impresora se traba, no se pierde nada: **Imprimir fotos otra vez...** abre las fotos y las manda a la impresora predeterminada de Windows.
+
 ## QR en el salón
 
 El QR apunta a la IP de la PC en la red. La PC y los celulares de los invitados tienen que estar en el **mismo Wi-Fi/router**.
