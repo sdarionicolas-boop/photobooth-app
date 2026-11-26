@@ -112,7 +112,7 @@ if ($NoAutostart) {
 
 # --- 6. event panel -----------------------------------------------------------
 Write-Step 'Building the event panel (Espejo.exe) and the desktop shortcut'
-if (-not $DryRun) { & (Join-Path $RepoDir 'kioskuild-launcher.ps1') -DesktopShortcut }
+if (-not $DryRun) { & (Join-Path $RepoDir 'kiosk\build-launcher.ps1') -DesktopShortcut }
 
 Write-Step 'Done'
 Write-Host @"

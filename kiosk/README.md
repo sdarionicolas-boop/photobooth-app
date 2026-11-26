@@ -35,7 +35,7 @@ uv run python kiosk/presets/apply_mirror_config.py --title "MIS XV LUCIA♥" --s
 
 ## Panel del evento (Espejo.exe) y dónde quedan las fotos
 
-El instalador crea el acceso directo **Espejo** en el escritorio (o `.\kioskuild-launcher.ps1 -DesktopShortcut`). Botones: iniciar/cerrar el espejo, abrir la carpeta de fotos, imprimir fotos otra vez, copia de seguridad y administración.
+El instalador crea el acceso directo **Espejo** en el escritorio (o `.\kiosk\build-launcher.ps1 -DesktopShortcut`). Botones: iniciar/cerrar el espejo, abrir la carpeta de fotos, imprimir fotos otra vez, copia de seguridad y administración.
 
 - **Fotos terminadas** (con marco, frase y fecha): `media\processed_full\` dentro de la carpeta de la app (p. ej. `C:\photobooth\media\processed_full`).
 - **Originales de la cámara**: `media\camera_original\`.
