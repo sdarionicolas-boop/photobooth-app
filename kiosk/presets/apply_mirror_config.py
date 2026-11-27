@@ -101,6 +101,10 @@ def guest_buttons(actions: dict) -> None:
             is_photo = action_type == "image" and index == 0
             is_strip = action_type == "collage" and item.get("name") == STRIP_NAME
             ui["show_button"] = is_photo or is_strip
+            # the operator drives the booth from the keyboard: F = photo, T = strip. Every other shortcut is cleared.
+            keyboard = item.get("trigger", {}).get("keyboard_trigger")
+            if keyboard is not None:
+                keyboard["keycode"] = "f" if is_photo else "t" if is_strip else ""
             if is_photo:
                 ui["title"], ui["icon"] = "Foto", "photo_camera"
                 item.setdefault("jobcontrol", {})["countdown_capture"] = 10.0
@@ -241,6 +245,7 @@ def main() -> int:
     else:
         collages.append(strip)
     guest_buttons(config["actions"])
+    config.setdefault("hardwareinputoutput", {})["keyboard_input_enabled"] = True
     photo_frame(config["actions"], paths and paths["photo_frame"])
     GroupActions.model_validate(config["actions"])
 

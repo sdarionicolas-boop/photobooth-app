@@ -30,7 +30,7 @@ class Espejo : Form
     Espejo()
     {
         Text = "Espejo magico - Panel del evento";
-        ClientSize = new Size(460, 520);
+        ClientSize = new Size(460, 650);
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
@@ -43,13 +43,15 @@ class Espejo : Form
         Controls.Add(status);
 
         AddButton(0, "Iniciar espejo", Color.FromArgb(46, 125, 50), StartMirror);
-        AddButton(1, "Cerrar espejo", Color.FromArgb(150, 50, 50), StopMirror);
-        AddButton(2, "Abrir carpeta de fotos", Color.FromArgb(60, 60, 90), delegate { Open(Photos); });
-        AddButton(3, "Imprimir fotos otra vez...", Color.FromArgb(60, 60, 90), PrintAgain);
-        AddButton(4, "Copia de seguridad ahora", Color.FromArgb(60, 60, 90), delegate { Backup(true); });
-        AddButton(5, "Administracion (frase del evento)", Color.FromArgb(60, 60, 90), delegate { Process.Start("http://127.0.0.1:8000/#/setup"); });
+        AddButton(1, "SACAR FOTO   (tecla F en la pantalla)", Color.FromArgb(160, 110, 20), delegate { TakePhoto("image/0"); });
+        AddButton(2, "SACAR TIRA   (tecla T en la pantalla)", Color.FromArgb(160, 110, 20), delegate { TakePhoto("collage/1"); });
+        AddButton(3, "Abrir carpeta de fotos", Color.FromArgb(60, 60, 90), delegate { Open(Photos); });
+        AddButton(4, "Imprimir fotos otra vez...", Color.FromArgb(60, 60, 90), PrintAgain);
+        AddButton(5, "Copia de seguridad ahora", Color.FromArgb(60, 60, 90), delegate { Backup(true); });
+        AddButton(6, "Administracion (frase del evento)", Color.FromArgb(60, 60, 90), delegate { Process.Start("http://127.0.0.1:8000/#/setup"); });
+        AddButton(7, "Cerrar espejo", Color.FromArgb(150, 50, 50), StopMirror);
 
-        info.SetBounds(20, 440, 420, 70);
+        info.SetBounds(20, 570, 420, 70);
         info.Font = new Font("Segoe UI", 9f);
         info.ForeColor = Color.Silver;
         Controls.Add(info);
@@ -97,6 +99,18 @@ class Espejo : Form
         tick++;
         if (tick % 12 == 1) Backup(false); // about once a minute, automatically
         info.Text = "Fotos hechas: " + Count(Photos) + "\nFotos guardadas en: " + Photos + "\nCopia automatica en: " + BackupRoot;
+    }
+
+    // starts a capture on the running booth (same thing as the F / T keys on the screen)
+    void TakePhoto(string action)
+    {
+        try
+        {
+            var r = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:8000/api/actions/" + action);
+            r.Timeout = 5000;
+            using (r.GetResponse()) { }
+        }
+        catch (Exception ex) { MessageBox.Show("No se pudo sacar la foto. Esta iniciado el espejo? " + ex.Message); }
     }
 
     static void Open(string dir)
